@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
+description: Maxim MAX30102 sensor
+compatible: "maxim,max30102"
+include: [sensor-device.yaml, i2c-device.yaml]
