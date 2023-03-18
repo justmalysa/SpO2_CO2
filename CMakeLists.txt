@@ -14,4 +14,5 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(spo2_co2_fw)
 
 target_sources(app PRIVATE
-               src/main.c)
+               src/main.c
+               src/app.c)

@@ -1,8 +1,19 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
+&pinctrl {
+    i2c0_pins: i2c0_pins {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 0, 26)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 27)>;
+            bias-pull-up;
+        };
+    };
+};
+
 &i2c0 {
     max30102@57 {
         compatible = "maxim,max30102";
         reg = <0x57>;
     };
+    pinctrl-0 = <&i2c0_pins>;
 };

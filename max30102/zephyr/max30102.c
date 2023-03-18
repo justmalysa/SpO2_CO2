@@ -105,8 +105,21 @@ static int max30102_init(const struct device *dev)
     if (i2c_reg_read_byte_dt(&config->i2c, MAX30102_REG_PART_ID, &part_id))
     {
         LOG_ERR("Could not get Part ID");
+
+        LOG_INF("Attempt to recover the bus");
+        if (i2c_recover_bus(config->i2c.bus))
+        {
+            LOG_ERR("Bus recovery failed");
+            return -EIO;
+        }
+    }
+
+    if (i2c_reg_read_byte_dt(&config->i2c, MAX30102_REG_PART_ID, &part_id))
+    {
+        LOG_ERR("Could not get Part ID");
         return -EIO;
     }
+
     if (part_id != MAX30102_PART_ID)
     {
         LOG_ERR("Got Part ID 0x%02x, expected 0x%02x", part_id, MAX30102_PART_ID);
