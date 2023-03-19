@@ -17,6 +17,6 @@ void main(void)
         app_spo2_measurement_start();
         spo2_val = app_spo2_val_get();
         LOG_INF("SpO2 val: %d", spo2_val);
-        k_sleep(K_SECONDS(20));
+        k_sleep(K_SECONDS(6));
     }
 }

@@ -8,14 +8,15 @@ LOG_MODULE_REGISTER(app, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include "math.h"
 
-#define SPO2_MEASUREMENT_PERIOD_S    15
+#define SPO2_MEASUREMENT_PERIOD_S    5
 #define SPO2_SAMPLING_TIME_MS        10
+#define SPO2_BUFFER_SIZE             (SPO2_MEASUREMENT_PERIOD_S * 1000) / SPO2_SAMPLING_TIME_MS
 
 struct spo2_ctx
 {
-    uint64_t ir_sum;
-    uint64_t red_sum;
     uint16_t index;
+    uint32_t red_buf[SPO2_BUFFER_SIZE];
+    uint32_t ir_buf[SPO2_BUFFER_SIZE];
     uint16_t current_val;
     struct k_timer measurement_timer;
     struct k_timer sampling_timer;
@@ -52,10 +53,33 @@ static const struct device *get_max30102_device(void)
 
 static uint16_t spo2_calculate(void)
 {
-    float AC_red = sqrt((float)spo2.red_sum / SPO2_MEASUREMENT_PERIOD_S);
-    float DC_red = (float)spo2.red_sum / spo2.index;
-    float AC_ir = sqrt((float)spo2.ir_sum / SPO2_MEASUREMENT_PERIOD_S);
-    float DC_ir = (float)spo2.ir_sum / spo2.index;
+    uint64_t red_sum = 0;
+    uint64_t ir_sum = 0;
+    uint64_t red_squared_sum = 0;
+    uint64_t ir_squared_sum = 0;
+    uint32_t red_mean = 0;
+    uint32_t ir_mean = 0;
+
+    for (uint16_t i = 0; i < SPO2_BUFFER_SIZE; i++)
+    {
+        red_sum += spo2.red_buf[i];
+        ir_sum += spo2.ir_buf[i];
+    }
+
+    red_mean = red_sum / SPO2_BUFFER_SIZE;
+    ir_mean = ir_sum / SPO2_BUFFER_SIZE;
+
+    for (uint16_t i = 0; i < SPO2_BUFFER_SIZE; i++)
+    {
+        red_squared_sum += (spo2.red_buf[i] - red_mean) * (spo2.red_buf[i] - red_mean);
+        ir_squared_sum += (spo2.ir_buf[i] - ir_mean) * (spo2.ir_buf[i] - ir_mean);
+    }
+
+    double AC_red = sqrt((double)red_squared_sum / (double)SPO2_MEASUREMENT_PERIOD_S);
+    double DC_red = (double)red_mean;
+    double AC_ir = sqrt((double)ir_squared_sum / (double)SPO2_MEASUREMENT_PERIOD_S);
+    double DC_ir = (double)ir_mean;
+
     return 110.0 - 25.0 * ((AC_red / DC_red) / (AC_ir / DC_ir));
 }
 
@@ -87,18 +111,23 @@ static void spo2_sample_add_workqueue(struct k_work *item)
         return;
     }
 
-    spo2.red_sum += data[0].val1;
-    spo2.ir_sum += data[1].val1;
+    spo2.red_buf[spo2.index] = data[0].val1;
+    spo2.ir_buf[spo2.index] = data[1].val1;
     spo2.index++;
+}
+
+static void spo2_val_init(void)
+{
+    memset(spo2.red_buf, 0, SPO2_BUFFER_SIZE);
+    memset(spo2.ir_buf, 0, SPO2_BUFFER_SIZE);
+    spo2.index = 0;
 }
 
 static void spo2_measurement_complete_workqueue(struct k_work *item)
 {
     k_timer_stop(&spo2.sampling_timer);
     spo2.current_val = spo2_calculate();
-    spo2.ir_sum = 0;
-    spo2.red_sum = 0;
-    spo2.index = 0;
+    spo2_val_init();
 }
 
 static void spo2_sampling_timer_expiry(struct k_timer *timer_id)
