@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
+description: Sensirion ssd1306 sensor
+compatible: "sensirion,stc31"
+include: [sensor-device.yaml, i2c-device.yaml]

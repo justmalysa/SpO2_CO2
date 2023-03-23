@@ -15,5 +15,9 @@
         compatible = "maxim,max30102";
         reg = <0x57>;
     };
+    stc31@29 {
+        compatible = "sensirion,stc31";
+        reg = <0x29>;
+    };
     pinctrl-0 = <&i2c0_pins>;
 };

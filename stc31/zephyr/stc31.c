@@ -1,0 +1,130 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#define DT_DRV_COMPAT sensirion_stc31
+
+#include "zephyr/logging/log.h"
+
+#include "stc31.h"
+
+LOG_MODULE_REGISTER(STC31, CONFIG_SENSOR_LOG_LEVEL);
+
+static int stc31_sample_fetch(const struct device *dev, enum sensor_channel chan)
+{
+    struct stc31_data *data = dev->data;
+    const struct stc31_config *config = dev->config;
+
+    uint8_t write_buffer[2] = {STC31_CMD_MEASURE_GAS_CONCENTRATION >> 8,
+                               (uint8_t)STC31_CMD_MEASURE_GAS_CONCENTRATION};
+
+    uint8_t read_buffer[2] = {0};
+
+    i2c_write_dt(&config->i2c, write_buffer, sizeof(write_buffer));
+
+    k_sleep(K_MSEC(66));
+
+    if (i2c_write_read_dt(&config->i2c, write_buffer, sizeof(write_buffer), read_buffer, sizeof(read_buffer)))
+    {
+        LOG_ERR("Could not fetch sample");
+        return -EIO;
+    }
+
+    data->raw = (read_buffer[0] << 8) | read_buffer[1];
+
+    return 0;
+}
+
+static int stc31_channel_get(const struct device *dev, enum sensor_channel chan, struct sensor_value *val)
+{
+    struct stc31_data *data = dev->data;
+
+    val->val1 = data->raw;
+    val->val2 = 0;
+
+    return 0;
+}
+
+static const struct sensor_driver_api stc31_driver_api =
+{
+    .sample_fetch = stc31_sample_fetch,
+    .channel_get = stc31_channel_get,
+};
+
+static int stc31_init(const struct device *dev)
+{
+    const struct stc31_config *config = dev->config;
+    struct stc31_data *data = dev->data;
+    uint32_t part_id;
+
+    if (!device_is_ready(config->i2c.bus)) {
+        LOG_ERR("Bus device is not ready");
+        return -ENODEV;
+    }
+
+    uint8_t write_buffer[2] = {STC31_CMD_READ_PRODUCT_IDENTIFIER_1 >> 8,
+                               (uint8_t)STC31_CMD_READ_PRODUCT_IDENTIFIER_1};
+
+    i2c_write_dt(&config->i2c, write_buffer, sizeof(write_buffer));
+
+    write_buffer[0] = STC31_CMD_READ_PRODUCT_IDENTIFIER_2 >> 8;
+    write_buffer[1] = (uint8_t)STC31_CMD_READ_PRODUCT_IDENTIFIER_2;
+
+    uint8_t read_buffer[5] = {0};
+
+    /* Check the part id to make sure this is STC31 */
+    if (i2c_write_read_dt(&config->i2c, write_buffer, sizeof(write_buffer), read_buffer, sizeof(read_buffer)))
+    {
+        LOG_ERR("Could not get Part ID");
+
+        LOG_INF("Attempt to recover the bus");
+        if (i2c_recover_bus(config->i2c.bus))
+        {
+            LOG_ERR("Bus recovery failed");
+            return -EIO;
+        }
+    }
+
+    if (i2c_write_read_dt(&config->i2c, write_buffer, sizeof(write_buffer), read_buffer, sizeof(read_buffer)))
+    {
+        LOG_ERR("Could not get Part ID");
+        return -EIO;
+    }
+
+    part_id = (read_buffer[0] << 24) | (read_buffer[1] << 16) | (read_buffer[2] << 8) | read_buffer[3];
+
+    if (part_id != STC31_PART_ID)
+    {
+        LOG_ERR("Got Part ID 0x%02x, expected 0x%02x", part_id, STC31_PART_ID);
+        return -EIO;
+    }
+
+    /* Reset the sensor */
+    write_buffer[0] = STC31_CMD_SOFT_RESET >> 8;
+    write_buffer[1] = (uint8_t)STC31_CMD_SOFT_RESET;
+
+    i2c_write_dt(&config->i2c, write_buffer, sizeof(write_buffer));
+
+    /* Wait for reset to be cleared */
+    k_sleep(K_MSEC(12));
+
+    /* Set binary gas */
+    uint8_t buffer[4] = {STC31_CMD_SET_BINARY_GAS >> 8,
+                         (uint8_t)STC31_CMD_SET_BINARY_GAS,
+                         STC31_ARG_CO2_IN_AIR_100 >> 8,
+                         (uint8_t)STC31_ARG_CO2_IN_AIR_100};
+
+    i2c_write_dt(&config->i2c, buffer, sizeof(buffer));
+
+    return 0;
+}
+
+static struct stc31_config stc31_config =
+{
+    .i2c = I2C_DT_SPEC_INST_GET(0),
+};
+
+static struct stc31_data stc31_data;
+
+SENSOR_DEVICE_DT_INST_DEFINE(0, stc31_init, NULL, &stc31_data, &stc31_config,
+    POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &stc31_driver_api);

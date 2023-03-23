@@ -1,0 +1,13 @@
+# STC31 CO2 sensor
+
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig STC31
+    bool "STC31 CO2 Sensor"
+    default y
+    depends on DT_HAS_SENSIRION_STC31_ENABLED
+    select I2C
+
+if STC31
+
+endif # STC31
