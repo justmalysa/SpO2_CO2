@@ -7,6 +7,7 @@
 LOG_MODULE_REGISTER(app, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include "math.h"
+#include "display.h"
 
 #define SPO2_MEASUREMENT_PERIOD_S    5
 #define SPO2_SAMPLING_TIME_MS        10
@@ -142,6 +143,7 @@ static void spo2_measurement_timer_expiry(struct k_timer *timer_id)
 
 void app_init(void)
 {
+    display_init();
     k_timer_init(&spo2.sampling_timer, spo2_sampling_timer_expiry, NULL);
     k_timer_init(&spo2.measurement_timer, spo2_measurement_timer_expiry, NULL);
     k_work_init(&spo2.sampling_work, spo2_sample_add_workqueue);
