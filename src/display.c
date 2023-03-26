@@ -12,9 +12,9 @@ LOG_MODULE_REGISTER(display, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include "display.h"
 
-#define SENSOR_VAL_OFFSET_X    50
-#define SPO2_TEXT_OFFSET_X     0
-#define CO2_TEXT_OFFSET_X      9
+#define SENSOR_VAL_OFFSET_X    70
+#define SPO2_TEXT_OFFSET_X     16
+#define CO2_TEXT_OFFSET_X      25
 #define SPO2_OFFSET_Y          14
 #define CO2_OFFSET_Y           40
 

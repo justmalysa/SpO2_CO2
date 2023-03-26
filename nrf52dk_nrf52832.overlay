@@ -55,7 +55,7 @@
         reg = <0x0>;
         spi-max-frequency = <10000000>;
         data_cmd-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
-        segment-offset = <20>;
+        segment-offset = <4>;
         page-offset = <0>;
         display-offset = <2>;
         multiplex-ratio = <63>;
