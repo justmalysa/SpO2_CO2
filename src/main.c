@@ -13,14 +13,15 @@ void main(void)
     app_init();
 
     uint16_t spo2_val;
-    enum sensor_type type = SENSOR_SPO2;
+    float co2_val;
+    enum sensor_type type = SENSOR_CO2;
 
     while(1)
     {
-        app_spo2_measurement_start();
-        spo2_val = app_spo2_val_get();
-        LOG_INF("SpO2 val: %d", spo2_val);
-        display_print(type, spo2_val);
-        k_sleep(K_SECONDS(6));
+        app_co2_measurement_start();
+        co2_val = app_co2_val_get();
+        LOG_INF("CO2 val: %f", co2_val);
+        display_print(type, (uint8_t)co2_val);
+        k_sleep(K_SECONDS(1));
     }
 }

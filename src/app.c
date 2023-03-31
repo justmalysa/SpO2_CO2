@@ -27,6 +27,13 @@ struct spo2_ctx
 
 static struct spo2_ctx spo2;
 
+struct co2_ctx
+{
+    float current_val;
+};
+
+static struct co2_ctx co2;
+
 /*
  * Get a device structure from a devicetree node with compatible "maxim,max30102".
  */
@@ -141,6 +148,62 @@ static void spo2_measurement_timer_expiry(struct k_timer *timer_id)
     k_work_submit(&spo2.measurement_work);
 }
 
+/*
+ * Get a device structure from a devicetree node with compatible "sensirion,stc31".
+ */
+static const struct device *get_stc31_device(void)
+{
+    const struct device *dev = DEVICE_DT_GET_ANY(sensirion_stc31);
+
+    if (dev == NULL)
+    {
+        /* No such node, or the node does not have status "okay". */
+        LOG_ERR("\nError: no device found.\n");
+        return NULL;
+    }
+
+    if (!device_is_ready(dev))
+    {
+        LOG_ERR("\nError: Device \"%s\" is not ready; "
+                "check the driver initialization logs for errors.\n",
+               dev->name);
+        return NULL;
+    }
+
+    return dev;
+}
+
+static float co2_calculate(uint16_t raw_val)
+{
+    float co2 = (((float)raw_val - 16384.0) * 100) / 32768.0;
+    return (co2 > 0.0) ? co2 : 0.0;
+}
+
+static void co2_measure(void)
+{
+    const struct device *dev = get_stc31_device();
+
+    if (dev == NULL)
+    {
+        return;
+    }
+
+    struct sensor_value data;
+
+    if (sensor_sample_fetch(dev) < 0)
+    {
+        LOG_ERR("Error when fetching the data\n");
+    }
+
+    if (sensor_channel_get(dev, SENSOR_CHAN_CO2, &data) < 0)
+    {
+        LOG_ERR("Channel get error\n");
+        return;
+    }
+
+    co2.current_val = co2_calculate(data.val1);
+}
+
 void app_init(void)
 {
     display_init();
@@ -156,7 +219,17 @@ void app_spo2_measurement_start(void)
     k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_PERIOD_S), K_FOREVER);
 }
 
+void app_co2_measurement_start(void)
+{
+    co2_measure();
+}
+
 uint16_t app_spo2_val_get(void)
 {
     return spo2.current_val;
+}
+
+float app_co2_val_get(void)
+{
+    return co2.current_val;
 }
