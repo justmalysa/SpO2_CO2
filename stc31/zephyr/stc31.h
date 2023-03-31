@@ -32,6 +32,8 @@
 
 #define STC31_PART_ID    0x08010301
 
+#define STC31_FRC_REFERENCE_CONCENTRATION    0
+
 struct stc31_config
 {
     struct i2c_dt_spec i2c;
