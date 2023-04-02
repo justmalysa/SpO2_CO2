@@ -3,7 +3,7 @@
 
 #include <zephyr/drivers/gpio.h>
 
-typedef void (*button_cb_t) (const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+typedef void (*button_cb_t) (void);
 
 enum button_type
 {
@@ -13,6 +13,6 @@ enum button_type
     BUTTON_TOP,
 };
 
-void button_init(button_cb_t spo2_button_cb, button_cb_t co2_button_cb);
+void button_init(button_cb_t *user_button_cb);
 
 #endif /* BUTTON_H */
