@@ -6,6 +6,23 @@
     };
 };
 
+/ {
+     aliases {
+        spo2button = &button0;
+        co2button = &button1;
+     };
+
+     buttons {
+        compatible = "gpio-keys";
+        button0: button_0 {
+            gpios = < &gpio0 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
+        button1: button_1 {
+            gpios = < &gpio0 12 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
+     };
+};
+
 &pinctrl {
     i2c0_pins: i2c0_pins {
         group1 {
