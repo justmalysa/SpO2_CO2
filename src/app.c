@@ -8,6 +8,7 @@ LOG_MODULE_REGISTER(app, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include "math.h"
 #include "display.h"
+#include "button.h"
 
 #define SPO2_MEASUREMENT_PERIOD_S    5
 #define SPO2_SAMPLING_TIME_MS        10
@@ -18,7 +19,8 @@ struct spo2_ctx
     uint16_t index;
     uint32_t red_buf[SPO2_BUFFER_SIZE];
     uint32_t ir_buf[SPO2_BUFFER_SIZE];
-    uint16_t current_val;
+    uint8_t current_val;
+    bool measurement_in_progress;
     struct k_timer measurement_timer;
     struct k_timer sampling_timer;
     struct k_work measurement_work;
@@ -30,6 +32,8 @@ static struct spo2_ctx spo2;
 struct co2_ctx
 {
     float current_val;
+    bool measurement_in_progress;
+    struct k_work measurement_work;
 };
 
 static struct co2_ctx co2;
@@ -59,7 +63,7 @@ static const struct device *get_max30102_device(void)
     return dev;
 }
 
-static uint16_t spo2_calculate(void)
+static uint8_t spo2_calculate(void)
 {
     uint64_t red_sum = 0;
     uint64_t ir_sum = 0;
@@ -129,6 +133,7 @@ static void spo2_val_init(void)
     memset(spo2.red_buf, 0, SPO2_BUFFER_SIZE);
     memset(spo2.ir_buf, 0, SPO2_BUFFER_SIZE);
     spo2.index = 0;
+    spo2.measurement_in_progress = false;
 }
 
 static void spo2_measurement_complete_workqueue(struct k_work *item)
@@ -136,6 +141,7 @@ static void spo2_measurement_complete_workqueue(struct k_work *item)
     k_timer_stop(&spo2.sampling_timer);
     spo2.current_val = spo2_calculate();
     spo2_val_init();
+    display_print(SENSOR_SPO2, spo2.current_val);
 }
 
 static void spo2_sampling_timer_expiry(struct k_timer *timer_id)
@@ -204,32 +210,45 @@ static void co2_measure(void)
     co2.current_val = co2_calculate(data.val1);
 }
 
-void app_init(void)
+static void co2_measurement_complete_workqueue(struct k_work *item)
 {
-    display_init();
-    k_timer_init(&spo2.sampling_timer, spo2_sampling_timer_expiry, NULL);
-    k_timer_init(&spo2.measurement_timer, spo2_measurement_timer_expiry, NULL);
-    k_work_init(&spo2.sampling_work, spo2_sample_add_workqueue);
-    k_work_init(&spo2.measurement_work, spo2_measurement_complete_workqueue);
+    co2_measure();
+    display_print(SENSOR_CO2, co2.current_val);
+    co2.measurement_in_progress = false;
 }
 
-void app_spo2_measurement_start(void)
+static void spo2_button_pressed(void)
 {
+    if (spo2.measurement_in_progress)
+    {
+        return;
+    }
+
+    spo2.measurement_in_progress = true;
     k_timer_start(&spo2.sampling_timer, K_NO_WAIT, K_MSEC(SPO2_SAMPLING_TIME_MS));
     k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_PERIOD_S), K_FOREVER);
 }
 
-void app_co2_measurement_start(void)
+static void co2_button_pressed(void)
 {
-    co2_measure();
+    if (co2.measurement_in_progress)
+    {
+        return;
+    }
+
+    co2.measurement_in_progress = true;
+
+    k_work_submit(&co2.measurement_work);
 }
 
-uint16_t app_spo2_val_get(void)
+void app_init(void)
 {
-    return spo2.current_val;
-}
-
-float app_co2_val_get(void)
-{
-    return co2.current_val;
+    button_cb_t buttons_cb[BUTTON_TOP] = {spo2_button_pressed, co2_button_pressed};
+    display_init();
+    button_init(buttons_cb);
+    k_timer_init(&spo2.sampling_timer, spo2_sampling_timer_expiry, NULL);
+    k_timer_init(&spo2.measurement_timer, spo2_measurement_timer_expiry, NULL);
+    k_work_init(&spo2.sampling_work, spo2_sample_add_workqueue);
+    k_work_init(&spo2.measurement_work, spo2_measurement_complete_workqueue);
+    k_work_init(&co2.measurement_work, co2_measurement_complete_workqueue);
 }
