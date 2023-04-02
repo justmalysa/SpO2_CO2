@@ -92,7 +92,6 @@ static const struct sensor_driver_api stc31_driver_api =
 static int stc31_init(const struct device *dev)
 {
     const struct stc31_config *config = dev->config;
-    struct stc31_data *data = dev->data;
     uint32_t part_id;
 
     if (!device_is_ready(config->i2c.bus)) {
