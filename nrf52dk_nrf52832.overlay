@@ -15,10 +15,10 @@
      buttons {
         compatible = "gpio-keys";
         button0: button_0 {
-            gpios = < &gpio0 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            gpios = < &gpio0 26 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
         };
         button1: button_1 {
-            gpios = < &gpio0 12 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            gpios = < &gpio0 25 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
         };
      };
 };
@@ -26,22 +26,22 @@
 &pinctrl {
     i2c0_pins: i2c0_pins {
         group1 {
-            psels = <NRF_PSEL(TWIM_SDA, 0, 26)>,
-                    <NRF_PSEL(TWIM_SCL, 0, 27)>;
+            psels = <NRF_PSEL(TWIM_SDA, 0, 28)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 29)>;
             bias-pull-up;
         };
     };
     spi2_default_alt: spi2_default_alt {
         group1 {
-            psels = <NRF_PSEL(SPIM_SCK, 0, 25)>,
-            <NRF_PSEL(SPIM_MOSI, 0, 23)>,
+            psels = <NRF_PSEL(SPIM_SCK, 0, 14)>,
+            <NRF_PSEL(SPIM_MOSI, 0, 16)>,
             <NRF_PSEL(SPIM_MISO, 0, 24)>;
         };
     };
     spi2_sleep_alt: spi2_sleep_alt {
         group1 {
-            psels = <NRF_PSEL(SPIM_SCK, 0, 25)>,
-                <NRF_PSEL(SPIM_MOSI, 0, 23)>,
+            psels = <NRF_PSEL(SPIM_SCK, 0, 14)>,
+                <NRF_PSEL(SPIM_MOSI, 0, 16)>,
                 <NRF_PSEL(SPIM_MISO, 0, 24)>;
             low-power-enable;
         };
@@ -66,12 +66,12 @@
     pinctrl-0 = <&spi2_default_alt>;
     pinctrl-1 = <&spi2_sleep_alt>;
     pinctrl-names = "default", "sleep";
-    cs-gpios = <&gpio0 22 GPIO_ACTIVE_LOW>;
+    cs-gpios = <&gpio0 20 GPIO_ACTIVE_LOW>;
     ssd1306_ssd1306_128x64_spi: ssd1306@0 {
         compatible = "solomon,ssd1306fb";
         reg = <0x0>;
         spi-max-frequency = <10000000>;
-        data_cmd-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+        data_cmd-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
         segment-offset = <4>;
         page-offset = <0>;
         display-offset = <2>;
