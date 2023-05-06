@@ -79,7 +79,7 @@
         prechargep = <0x22>;
         height = <64>;
         width = <128>;
-        segment-remap;
-        com-invdir;
+        /delete-property/ segment-remap;
+        /delete-property/ com-invdir;
     };
 };
