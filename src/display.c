@@ -22,7 +22,8 @@ LOG_MODULE_REGISTER(display, CONFIG_LOG_DEFAULT_LEVEL);
 struct display_ctx
 {
     const struct device *device;
-    lv_obj_t *val_label;
+    lv_obj_t *spo2_label;
+    lv_obj_t *co2_label;
 };
 
 static struct display_ctx display;
@@ -52,20 +53,29 @@ void display_init(void)
     lv_task_handler();
     display_blanking_off(display.device);
 
-    display.val_label = lv_label_create(lv_scr_act());
+    display.spo2_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(display.spo2_label, "");
+    lv_obj_align(display.spo2_label, LV_ALIGN_TOP_LEFT, SENSOR_VAL_OFFSET_X, SPO2_OFFSET_Y);
+
+    display.co2_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(display.co2_label, "");
+    lv_obj_align(display.co2_label, LV_ALIGN_TOP_LEFT, SENSOR_VAL_OFFSET_X, CO2_OFFSET_Y);
 }
 
-void display_print(enum sensor_type type, uint8_t val)
+void display_print(enum sensor_type type, float val)
 {
+    uint16_t integer = (uint16_t)val;
+    uint16_t fraction = ((uint16_t)(val * 100.0) % 100);
+
     switch (type)
     {
         case SENSOR_SPO2:
-            lv_label_set_text_fmt(display.val_label, "%d %%", val);
-            lv_obj_align(display.val_label, LV_ALIGN_TOP_LEFT, SENSOR_VAL_OFFSET_X, SPO2_OFFSET_Y);
+            lv_label_set_text_fmt(display.spo2_label, "%d %%", (uint16_t)val);
+            lv_obj_align(display.spo2_label, LV_ALIGN_TOP_LEFT, SENSOR_VAL_OFFSET_X, SPO2_OFFSET_Y);
             break;
         case SENSOR_CO2:
-            lv_label_set_text_fmt(display.val_label, "%d %%", val);
-            lv_obj_align(display.val_label, LV_ALIGN_TOP_LEFT, SENSOR_VAL_OFFSET_X, CO2_OFFSET_Y);
+            lv_label_set_text_fmt(display.co2_label, "%d. %d %%", integer, fraction);
+            lv_obj_align(display.co2_label, LV_ALIGN_TOP_LEFT, SENSOR_VAL_OFFSET_X, CO2_OFFSET_Y);
             break;
 
         default:

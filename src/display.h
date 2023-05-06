@@ -12,6 +12,6 @@ enum sensor_type
 
 void display_init(void);
 
-void display_print(enum sensor_type type, uint8_t val);
+void display_print(enum sensor_type type, float val);
 
 #endif /* DISPLAY_H */
