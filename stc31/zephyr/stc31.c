@@ -4,6 +4,8 @@
 
 #define DT_DRV_COMPAT sensirion_stc31
 
+#define STC31_MEASUREMENT_READOUT_ATTEMPTS 10
+
 #include "zephyr/logging/log.h"
 
 #include "stc31.h"
@@ -47,15 +49,24 @@ static int stc31_sample_fetch(const struct device *dev, enum sensor_channel chan
         LOG_ERR("Could not start measuring");
     }
 
-    k_sleep(K_MSEC(75));
-
     uint8_t read_buffer[3] = {0};
     uint8_t crc = 0;
 
-    if (i2c_read_dt(&config->i2c, read_buffer, sizeof(read_buffer)))
+    int err;
+    int attempts = 0;
+    do {
+        k_sleep(K_MSEC(10));
+        err = i2c_read_dt(&config->i2c, read_buffer, sizeof(read_buffer));
+    } while (err && (attempts++ < STC31_MEASUREMENT_READOUT_ATTEMPTS));
+
+    if (err)
     {
         LOG_ERR("Could not fetch sample");
         return -EIO;
+    }
+    else
+    {
+        LOG_DBG("Sample fetched successfully after %d [ms]", attempts * 10);
     }
 
     crc = compute_crc(&read_buffer[0], 2);
@@ -69,6 +80,8 @@ static int stc31_sample_fetch(const struct device *dev, enum sensor_channel chan
         LOG_ERR("Measured and computed CRCs do not match");
         return -EIO;
     }
+
+    LOG_DBG("Measurement result: %d", data->raw);
 
     return 0;
 }
