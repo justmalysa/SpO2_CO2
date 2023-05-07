@@ -11,15 +11,16 @@ LOG_MODULE_REGISTER(app, CONFIG_LOG_DEFAULT_LEVEL);
 #include "button.h"
 
 #define SPO2_MEASUREMENT_PERIOD_S    5
+#define SPO2_MEASUREMENT_TIME_S      (SPO2_MEASUREMENT_PERIOD_S + 1)
 #define SPO2_SAMPLING_TIME_MS        10
 #define SPO2_BUFFER_SIZE             (SPO2_MEASUREMENT_PERIOD_S * 1000) / SPO2_SAMPLING_TIME_MS
-
+#define SPO2_SAMPLES_TO_IGNORE       100
 #define CO2_MEASUREMENT_PERIOD_S     1
-
 
 struct spo2_ctx
 {
     uint16_t index;
+    uint16_t samples_to_ignore_cnt;
     uint32_t red_buf[SPO2_BUFFER_SIZE];
     uint32_t ir_buf[SPO2_BUFFER_SIZE];
     uint8_t current_val;
@@ -105,7 +106,7 @@ static uint8_t spo2_calculate(void)
     double AC_ir = sqrt((double)ir_squared_sum / (double)SPO2_MEASUREMENT_PERIOD_S);
     double DC_ir = (double)ir_mean;
 
-    return 110.0 - 25.0 * ((AC_red / DC_red) / (AC_ir / DC_ir));
+    return 101.72 - 6.4619 * ((AC_red / DC_red) / (AC_ir / DC_ir));
 }
 
 static void spo2_sample_add_workqueue(struct k_work *item)
@@ -136,6 +137,12 @@ static void spo2_sample_add_workqueue(struct k_work *item)
         return;
     }
 
+    if (spo2.samples_to_ignore_cnt < SPO2_SAMPLES_TO_IGNORE)
+    {
+        spo2.samples_to_ignore_cnt++;
+        return;
+    }
+
     spo2.red_buf[spo2.index] = data[0].val1;
     spo2.ir_buf[spo2.index] = data[1].val1;
     spo2.index++;
@@ -147,6 +154,7 @@ static void spo2_val_init(void)
     memset(spo2.ir_buf, 0, SPO2_BUFFER_SIZE);
     spo2.index = 0;
     spo2.measurement_in_progress = false;
+    spo2.samples_to_ignore_cnt = 0;
 }
 
 static void spo2_button_pressed_workqueue(struct k_work *item)
@@ -176,7 +184,7 @@ static void spo2_button_pressed(void)
 
     spo2.measurement_in_progress = true;
     k_timer_start(&spo2.sampling_timer, K_NO_WAIT, K_MSEC(SPO2_SAMPLING_TIME_MS));
-    k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_PERIOD_S), K_FOREVER);
+    k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_TIME_S), K_FOREVER);
 }
 
 /*
