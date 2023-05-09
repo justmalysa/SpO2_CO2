@@ -4,18 +4,18 @@
 #include <zephyr/drivers/sensor.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(app, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(spo2, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include "math.h"
+
 #include "display.h"
-#include "button.h"
+#include "spo2.h"
 
 #define SPO2_MEASUREMENT_PERIOD_S    5
 #define SPO2_MEASUREMENT_TIME_S      (SPO2_MEASUREMENT_PERIOD_S + 1)
 #define SPO2_SAMPLING_TIME_MS        10
 #define SPO2_BUFFER_SIZE             (SPO2_MEASUREMENT_PERIOD_S * 1000) / SPO2_SAMPLING_TIME_MS
 #define SPO2_SAMPLES_TO_IGNORE       100
-#define CO2_MEASUREMENT_PERIOD_S     1
 
 struct spo2_ctx
 {
@@ -32,25 +32,6 @@ struct spo2_ctx
 };
 
 static struct spo2_ctx spo2;
-
-enum co2_measurement_state
-{
-    CO2_MEAS_NONE,
-    CO2_MEAS_REQUESTED,
-    CO2_MEAS_STARTED,
-
-    CO2_MEAS_TOP,
-};
-
-struct co2_ctx
-{
-    enum co2_measurement_state state;
-    struct k_timer measurement_timer;
-    struct k_work measurement_work;
-    struct k_work button_pressed;
-};
-
-static struct co2_ctx co2;
 
 /*
  * Get a device structure from a devicetree node with compatible "maxim,max30102".
@@ -145,6 +126,7 @@ static void spo2_sample_add_workqueue(struct k_work *item)
 
     spo2.red_buf[spo2.index] = data[0].val1;
     spo2.ir_buf[spo2.index] = data[1].val1;
+    LOG_INF("RED=%d, IR=%d", data[0].val1, data[1].val1);
     spo2.index++;
 }
 
@@ -175,7 +157,7 @@ static void spo2_measurement_timer_expiry(struct k_timer *timer_id)
     k_work_submit(&spo2.button_pressed);
 }
 
-static void spo2_button_pressed(void)
+void spo2_button_pressed(void)
 {
     if (spo2.measurement_in_progress)
     {
@@ -187,101 +169,10 @@ static void spo2_button_pressed(void)
     k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_TIME_S), K_FOREVER);
 }
 
-/*
- * Get a device structure from a devicetree node with compatible "sensirion,stc31".
- */
-static const struct device *get_stc31_device(void)
+void spo2_init(void)
 {
-    const struct device *dev = DEVICE_DT_GET_ANY(sensirion_stc31);
-
-    if (dev == NULL)
-    {
-        /* No such node, or the node does not have status "okay". */
-        LOG_ERR("\nError: no device found.\n");
-        return NULL;
-    }
-
-    if (!device_is_ready(dev))
-    {
-        LOG_ERR("\nError: Device \"%s\" is not ready; "
-                "check the driver initialization logs for errors.\n",
-               dev->name);
-        return NULL;
-    }
-
-    return dev;
-}
-
-static float co2_calculate(uint16_t raw_val)
-{
-    float co2 = (((float)raw_val - 16384.0) * 100) / 32768.0;
-    return (co2 > 0.0) ? co2 : 0.0;
-}
-
-static void co2_measurement_timer_expiry(struct k_timer *timer_id)
-{
-    k_work_submit(&co2.measurement_work);
-}
-
-static void co2_measurement_complete_workqueue(struct k_work *item)
-{
-    const struct device *dev = get_stc31_device();
-
-    if (dev == NULL)
-    {
-        return;
-    }
-
-    struct sensor_value data;
-
-    if (sensor_sample_fetch(dev) < 0)
-    {
-        LOG_ERR("Error when fetching the data\n");
-    }
-
-    if (sensor_channel_get(dev, SENSOR_CHAN_CO2, &data) < 0)
-    {
-        LOG_ERR("Channel get error\n");
-        return;
-    }
-
-    switch (co2.state)
-    {
-        case CO2_MEAS_REQUESTED:
-            co2.state = CO2_MEAS_STARTED;
-            break;
-        case CO2_MEAS_STARTED:
-            display_print(SENSOR_CO2, co2_calculate(data.val1));
-            co2.state = CO2_MEAS_NONE;
-            break;
-        case CO2_MEAS_NONE:
-        default:
-            break;
-    }
-}
-
-static void co2_button_pressed(void)
-{
-    if (co2.state != CO2_MEAS_NONE)
-    {
-        return;
-    }
-
-    co2.state = CO2_MEAS_REQUESTED;
-}
-
-void app_init(void)
-{
-    button_cb_t buttons_cb[BUTTON_TOP] = {spo2_button_pressed, co2_button_pressed};
-    display_init();
-    button_init(buttons_cb);
-
     k_timer_init(&spo2.sampling_timer, spo2_sampling_timer_expiry, NULL);
     k_timer_init(&spo2.measurement_timer, spo2_measurement_timer_expiry, NULL);
     k_work_init(&spo2.sampling_work, spo2_sample_add_workqueue);
     k_work_init(&spo2.button_pressed, spo2_button_pressed_workqueue);
-
-    k_timer_init(&co2.measurement_timer, co2_measurement_timer_expiry, NULL);
-    k_work_init(&co2.measurement_work, co2_measurement_complete_workqueue);
-    k_timer_start(&co2.measurement_timer, K_SECONDS(CO2_MEASUREMENT_PERIOD_S), K_SECONDS(CO2_MEASUREMENT_PERIOD_S));
 }
