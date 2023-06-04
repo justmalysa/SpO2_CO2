@@ -28,7 +28,6 @@
         group1 {
             psels = <NRF_PSEL(TWIM_SDA, 0, 28)>,
                     <NRF_PSEL(TWIM_SCL, 0, 29)>;
-            bias-pull-up;
         };
     };
     spi2_default_alt: spi2_default_alt {
