@@ -10,6 +10,7 @@
 
 LOG_MODULE_REGISTER(MAX30102, CONFIG_SENSOR_LOG_LEVEL);
 
+
 static int max30102_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
     struct max30102_data *data = dev->data;
@@ -81,8 +82,49 @@ static int max30102_channel_get(const struct device *dev, enum sensor_channel ch
     return 0;
 }
 
+static int max30102_attr_set(const struct device *dev, enum sensor_channel chan, enum sensor_attribute attr, const struct sensor_value *val)
+{
+    const struct max30102_config *config = dev->config;
+    uint8_t led1_pa = 0x00;
+    uint8_t led2_pa = 0x00;
+
+    if ((chan != SENSOR_CHAN_RED) && (chan != SENSOR_CHAN_IR))
+    {
+        LOG_ERR("Not supported channel");
+        return -ENOTSUP;
+    }
+
+    switch (val->val1)
+    {
+    case MAX30102_POWER_ON:
+        led1_pa = CONFIG_MAX30102_LED1_PA;
+        led2_pa = CONFIG_MAX30102_LED2_PA;
+        break;
+
+    case MAX30102_POWER_OFF:
+        led1_pa = 0x00;
+        led2_pa = 0x00;
+        break;
+
+    default:
+        break;
+    }
+
+    if (i2c_reg_write_byte_dt(&config->i2c, MAX30102_REG_LED1_PA, led1_pa))
+    {
+        return -EIO;
+    }
+    if (i2c_reg_write_byte_dt(&config->i2c, MAX30102_REG_LED2_PA, led2_pa))
+    {
+        return -EIO;
+    }
+
+    return 0;
+}
+
 static const struct sensor_driver_api max30102_driver_api =
 {
+    .attr_set = max30102_attr_set,
     .sample_fetch = max30102_sample_fetch,
     .channel_get = max30102_channel_get,
 };
@@ -247,8 +289,8 @@ static struct max30102_config max30102_config =
         (CONFIG_MAX30102_SR << MAX30102_SPO2_SR_SHIFT) |
         (MAX30102_PW_18BITS << MAX30102_SPO2_PW_SHIFT),
 
-    .led_pa[0] = CONFIG_MAX30102_LED1_PA,
-    .led_pa[1] = CONFIG_MAX30102_LED2_PA,
+    .led_pa[0] = 0x00,
+    .led_pa[1] = 0x00,
 };
 
 static struct max30102_data max30102_data;

@@ -28,6 +28,7 @@ struct spo2_ctx
     struct k_timer measurement_timer;
     struct k_timer sampling_timer;
     struct k_work button_pressed;
+    struct k_work measurement_done;
     struct k_work sampling_work;
 };
 
@@ -56,6 +57,23 @@ static const struct device *get_max30102_device(void)
     }
 
     return dev;
+}
+
+static void spo2_power_mode_set(bool enable)
+{
+    const struct device *dev = get_max30102_device();
+    if (dev == NULL)
+    {
+        LOG_ERR("\nError: no device found.\n");
+        return;
+    }
+
+    struct sensor_value val = {enable, 0};
+    if (sensor_attr_set(dev, SENSOR_CHAN_RED, SENSOR_ATTR_CONFIGURATION, &val) <0)
+    {
+        LOG_ERR("\nError: Attributes could not be configured.\n");
+        return;
+    }
 }
 
 static uint8_t spo2_calculate(void)
@@ -141,10 +159,18 @@ static void spo2_val_init(void)
 
 static void spo2_button_pressed_workqueue(struct k_work *item)
 {
+    spo2_power_mode_set(true);
+    k_timer_start(&spo2.sampling_timer, K_NO_WAIT, K_MSEC(SPO2_SAMPLING_TIME_MS));
+    k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_TIME_S), K_FOREVER);
+}
+
+static void spo2_measurement_done_workqueue(struct k_work *item)
+{
     k_timer_stop(&spo2.sampling_timer);
     spo2.current_val = spo2_calculate();
     spo2_val_init();
     display_print(SENSOR_SPO2, spo2.current_val);
+    spo2_power_mode_set(false);
 }
 
 static void spo2_sampling_timer_expiry(struct k_timer *timer_id)
@@ -154,7 +180,7 @@ static void spo2_sampling_timer_expiry(struct k_timer *timer_id)
 
 static void spo2_measurement_timer_expiry(struct k_timer *timer_id)
 {
-    k_work_submit(&spo2.button_pressed);
+    k_work_submit(&spo2.measurement_done);
 }
 
 void spo2_button_pressed(void)
@@ -165,8 +191,8 @@ void spo2_button_pressed(void)
     }
 
     spo2.measurement_in_progress = true;
-    k_timer_start(&spo2.sampling_timer, K_NO_WAIT, K_MSEC(SPO2_SAMPLING_TIME_MS));
-    k_timer_start(&spo2.measurement_timer, K_SECONDS(SPO2_MEASUREMENT_TIME_S), K_FOREVER);
+
+    k_work_submit(&spo2.button_pressed);
 }
 
 void spo2_init(void)
@@ -175,4 +201,7 @@ void spo2_init(void)
     k_timer_init(&spo2.measurement_timer, spo2_measurement_timer_expiry, NULL);
     k_work_init(&spo2.sampling_work, spo2_sample_add_workqueue);
     k_work_init(&spo2.button_pressed, spo2_button_pressed_workqueue);
+    k_work_init(&spo2.measurement_done, spo2_measurement_done_workqueue);
+
+    spo2_power_mode_set(false);
 }

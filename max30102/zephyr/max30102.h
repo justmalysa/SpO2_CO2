@@ -97,3 +97,9 @@ struct max30102_data
     uint8_t map[MAX30102_MAX_NUM_CHANNELS];
     uint8_t num_channels;
 };
+
+enum max30102_power_mode
+{
+    MAX30102_POWER_OFF = 0,
+    MAX30102_POWER_ON,
+};
