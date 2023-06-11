@@ -40,12 +40,13 @@ void display_init(void)
         return;
     }
 
+    lv_obj_clean(lv_scr_act());
+
     spo2_label = lv_label_create(lv_scr_act());
     co2_label = lv_label_create(lv_scr_act());
 
     lv_label_set_text(spo2_label, "SpO2 :");
     lv_obj_align(spo2_label, LV_ALIGN_TOP_LEFT, SPO2_TEXT_OFFSET_X, SPO2_OFFSET_Y);
-
 
     lv_label_set_text(co2_label, "CO2 :");
     lv_obj_align(co2_label, LV_ALIGN_TOP_LEFT, CO2_TEXT_OFFSET_X, CO2_OFFSET_Y);
